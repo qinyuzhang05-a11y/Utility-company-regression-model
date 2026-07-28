@@ -1,5 +1,5 @@
 # Utility-company-regression-model
-# AFM244 – Time Series Forecasting with Apple Quarterly Sales
+# Time Series Forecasting with Apple Quarterly Sales
 
 This notebook demonstrates a basic time series forecasting workflow using linear regression (OLS) on Apple Inc.'s quarterly sales data, including how to model seasonality with a dummy variable and an interaction term.
 
