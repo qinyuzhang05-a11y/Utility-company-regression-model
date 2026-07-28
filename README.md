@@ -1,73 +1,67 @@
 # Utility-company-regression-model
-Time-Series Revenue Forecasting
+# AFM244 – Time Series Forecasting with Apple Quarterly Sales
 
-A notebook that forecasts Apple's quarterly revenue using linear regression on time, with a seasonal adjustment for the fiscal-Q1 revenue spike. Built for AFM244 (Week 11, Thursday session) and runs in Google Colab.
+This notebook demonstrates a basic time series forecasting workflow using linear regression (OLS) on Apple Inc.'s quarterly sales data, including how to model seasonality with a dummy variable and an interaction term.
 
-Note: this README was reconstructed from a PDF export of the notebook (G.pdf). If your actual .ipynb differs, treat filenames and cell order below as a guide rather than an exact match.
+> **Note:** This README was written based on a visual review of the notebook's cells and outputs (not the raw `.ipynb` source), so please double-check cell order and exact syntax against the notebook itself before relying on it.
 
-What it does
-Loads a quarterly sales dataset (qSales_2024.csv) covering many companies (277 rows, 16 columns).
-Filters to Apple (tic == 'AAPL', 92 quarters, 2001–2024).
-Plots revenue (saleq) over time to inspect the trend and seasonality.
-Adds a numeric time index (1, 2, 3, …) to use time as the independent variable.
-Splits the data 75% train / 25% test (chronologically — no shuffling).
-Fits an OLS regression and forecasts the test quarters.
-Adds a seasonal dummy (fiscal Q1) plus a time × dummy interaction term and refits, so the model captures both the trend and the recurring Q1 jump.
-Produces prediction intervals (80% / 90% confidence) for the forecasts.
-Requirements
-Python 3
-pandas, numpy, statsmodels, matplotlib
+## What This Notebook Does
 
-In Colab these are preinstalled. Locally:
+1. **Loads quarterly sales data** (`qSales_2024.csv`) for multiple companies (e.g. AAPL, NTDOY) and filters it down to Apple (`AAPL`) records.
+2. **Converts dates** to proper `datetime` objects and plots Apple's quarterly revenue over time to visually inspect trend and seasonality.
+3. **Creates a `time` index column** (1, 2, 3, …) to use as the independent variable for a time-trend regression.
+4. **Splits the data** into training (first 75%) and testing (last 25%) sets.
+5. **Fits an OLS regression model** (`statsmodels.api.OLS`) of revenue (`saleq`) on `time`, and generates point forecasts and prediction intervals (using `get_prediction().summary_frame()`) for the test period.
+6. **Adds a seasonal dummy variable** (`release_dummy_variable`) flagging Apple's fiscal Q1 (`fqtr == 1`), which typically captures the holiday-quarter sales spike (e.g. new iPhone release cycle), plus an **interaction term** (`time * release_dummy_variable`) to let the trend slope differ in that quarter.
+7. **Re-fits the model** with the dummy and interaction term, and re-generates forecasts/prediction intervals for the test set.
 
-bash
+## Key Concepts Illustrated
+
+- Framing time series forecasting as an OLS regression problem where **time itself is an independent variable**.
+- Train/test splitting for time-ordered data (sequential split rather than random split).
+- Interpreting an OLS model's coefficients as a fitted trend line (e.g. `revenue = const + β·time`).
+- Adding a seasonal dummy variable and a dummy–time interaction to model quarter-specific trend effects.
+- Using `model.get_prediction(...).summary_frame(alpha=...)` to obtain both **mean confidence intervals** and **observation (prediction) intervals** — noting that `obs_ci_lower`/`obs_ci_upper` are the relevant bounds for individual forecasts, not `mean_se`.
+
+## Requirements
+
+```
+python
+pandas
+numpy
+statsmodels
+matplotlib
+```
+
+Install with:
+```bash
 pip install pandas numpy statsmodels matplotlib
-Data
+```
 
-The notebook expects a file named qSales_2024.csv in the working directory. Relevant columns:
+## Data
 
-Column	Meaning
-tic	Ticker (e.g. AAPL)
-conm	Company name
-datadate	Quarter-end date
-fqtr	Fiscal quarter (1–4)
-saleq	Quarterly sales / revenue (the value being forecast)
+- **Input file:** `qSales_2024.csv` — expected to contain (at least) the following columns: `gvkey`, `datadate`, `fyearq`, `fqtr`, `fyr`, `indfmt`, `consol`, `popsrc`, `datafmt`, `tic`, `conm`, `curcdq`, `datacqtr`, `datafqtr`, `saleq`, `costat`.
+- This looks like data sourced from a financial database such as **Compustat** (columns like `gvkey`, `indfmt`, `popsrc`, `costat` are characteristic of that source), though I can't confirm the exact provenance from the notebook alone — you may want to verify this with your course materials.
+- The notebook filters this file down to Apple (`tic == 'AAPL'`) for the modeling steps, but the raw file includes multiple tickers (e.g. Nintendo/`NTDOY` also appears).
 
-I do not have a verified source for where this CSV originates; the field names (gvkey, saleq, datacqtr, etc.) match the Compustat quarterly format, but you should confirm with your course materials. In Colab, upload the CSV via the file panel or mount Google Drive before running.
+## How to Run
 
-How to run
+1. Place `qSales_2024.csv` in the same directory as the notebook (or update the file path in the `pd.read_csv(...)` call).
+2. Run all cells in order from top to bottom.
+3. Review the printed model coefficients and the `summary_frame()` output tables for forecasted values and confidence/prediction intervals.
 
-In Colab (as intended):
+## Known Issues / Notes
 
-Open the .ipynb in Google Colab.
-Upload qSales_2024.csv (Files panel, or mount Drive).
-Run cells top to bottom (Runtime → Run all).
+- The notebook throws `SettingWithCopyWarning` in a couple of cells (when creating `time`, `release_dummy_variable`, and `release_dummy_interaction` on `apple_sales`), because `apple_sales` is a filtered slice of the original DataFrame. This doesn't break the results shown here, but the more robust fix is to create `apple_sales` with `.copy()` right after filtering, e.g.:
+  ```python
+  apple_sales = qSales.loc[qSales['tic'] == 'AAPL'].copy()
+  ```
+- The 75/25 train/test split is done by row position (`int(0.75 * len(apple_sales))`), which assumes the data is already sorted chronologically.
 
-Locally (Jupyter):
+## Course Context
 
-Put the notebook and qSales_2024.csv in the same folder.
-jupyter notebook and run cells in order.
+This notebook appears to be course material (file name references `AFM244_S26_Week11_Thursday`), likely for a finance/accounting analytics course covering time series forecasting techniques. If you're re-using this for your own coursework or portfolio, you may want to add proper attribution back to the original course/instructor.
 
-Run the cells sequentially — later cells depend on variables (apple_sales, dt4training, model1) created earlier.
+## License
 
-The model
-
-Baseline (trend only):
-
-apple revenue ≈ -13,536 + 1,077 × time
-
-Extended (trend + seasonal dummy + interaction):
-
-apple revenue ≈ -11,044 + 933 × time
-                 + (-10,422) × release_dummy_variable
-                 + 578 × release_dummy_interaction
-
-where release_dummy_variable = 1 when fqtr == 1 (Apple's fiscal Q1, the holiday quarter) and release_dummy_interaction = time × release_dummy_variable.
-
-The coefficient numbers above are the fitted values shown in the exported notebook; they will re-compute when you run it and may shift slightly with a different data file.
-
-Notes / gotchas
-SettingWithCopyWarning appears when new columns are added to the filtered apple_sales slice. It's a warning, not an error; the notebook still runs. To silence it cleanly, create the slice with .copy() (e.g. apple_sales = qSales.loc[qSales['tic']=='AAPL'].copy()).
-The train/test split is chronological (first 75% train, last 25% test), which is correct for time-series forecasting — don't shuffle.
-For prediction ranges, read the obs_ci_lower / obs_ci_upper columns (individual prediction interval), not mean_se. alpha=0.2 → 80% confidence; alpha=0.1 → 90%.
-Display formatting is set to two decimals via pd.options.display.float_format.
+Add a license of your choosing here if you intend to make this repository public (e.g. MIT).
